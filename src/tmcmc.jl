@@ -22,6 +22,7 @@
 ###
 
 using Tullio
+using LoopVectorization
 using ArraysOfArrays
 
 function tmcmc(
@@ -111,7 +112,8 @@ function tmcmc(
         Σ_j    = zeros(Ndims, Ndims)
 
         for l = 1:Nsamples
-            Σ_j = Σ_j + beta2 .* wn_j[l] .* (θ_j[l,:]' .- Th_wm)' * (θ_j[l,:]' .- Th_wm)
+            θ_jl = @view θ_j[l,:]
+            Σ_j .+= beta2 .* wn_j[l] .* (θ_jl' .- Th_wm)' * (θ_jl' .- Th_wm)
         end
 
         # Ensure that cov is symetric
