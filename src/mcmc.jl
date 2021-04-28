@@ -23,7 +23,7 @@
 function metropolis_hastings(
     Target::Function,
     Prop::Function,
-    start::Vector{<:Real},
+    start::AbstractVector{<:Real},
     Nsamples::Integer,
     burnin::Integer=50,
     thin::Integer=3;
@@ -72,7 +72,7 @@ end
 function metropolis_hastings_simple(
     Target::Function,
     PropRnd::Function,
-    start::Vector{<:Real},
+    start::AbstractVector{<:Real},
     Nsamples::Integer,
     burnin::Integer=50,
     thin::Integer=3)

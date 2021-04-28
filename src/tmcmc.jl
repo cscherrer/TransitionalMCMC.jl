@@ -21,6 +21,9 @@
 #
 ###
 
+using Tullio
+using ArraysOfArrays
+
 function tmcmc(
     log_fD_T::Function,
     log_fT::Function,
@@ -33,12 +36,17 @@ function tmcmc(
     j1 = 0;                     # Iteration number
     βj = 0;                     # Tempering parameter
     θ_j = sample_fT(Nsamples);  # Samples of prior
-    Lp_j = zeros(Nsamples, 1);   # Log liklihood of first iteration
+    Lp_j = zeros(Nsamples);   # Log liklihood of first iteration
 
     Log_ev = 0                  # Log Evidence
 
     Ndims = size(θ_j, 2)         # Number of dimensions (input)
 
+    # An Ndims × Nsamples matrix with a vector-of-vectors interface
+    ins = nestedview(copy(θ_j)')
+    wj_test = similar(Lp_j)
+    w_j = similar(Lp_j)
+    wn_j = similar(Lp_j)
     while βj < 1
 
         j1 = j1 + 1
@@ -51,7 +59,9 @@ function tmcmc(
 
         @debug "Computing likelihood with $(nworkers()) workers..."
 
-        ins = [θ_j[i,:] for i in 1:size(θ_j, 1)]
+        ins.data .= θ_j'
+
+        # TODO: Still some allocation here
         Lp_j = pmap(log_fD_T, ins)
         Lp_j = reduce(vcat, Lp_j)
 
@@ -66,8 +76,13 @@ function tmcmc(
 
         while (hi_β - low_β) / ((hi_β + low_β) / 2) > 1e-6
             x1 = (hi_β + low_β) / 2;
-            wj_test = exp.((x1 .- βj ) .* (Lp_j .- Lp_adjust));
-            cov_w   = std(wj_test) / mean(wj_test);
+            @tullio wj_test[j] = exp((x1 - βj ) * (Lp_j[j] - Lp_adjust));
+
+            cov_w   = let μ = mean(wj_test)
+                # Avoid computing the mean twice
+                std(wj_test; mean=μ) / μ
+            end
+
             if cov_w > 1; hi_β = x1; else; low_β = x1; end
         end
 
@@ -80,12 +95,13 @@ function tmcmc(
         ###
         @debug "Computing weights..."
 
-        w_j = exp.((βj1 - βj) .* (Lp_j .- Lp_adjust))       # Nominal weights from likilhood and βjs
+        @tullio w_j[j] = exp((βj1 - βj) * (Lp_j[j] - Lp_adjust))       # Nominal weights from likilhood and βjs
 
-        Log_ev = log(mean(w_j)) + (βj1 - βj) * Lp_adjust + Log_ev   # Log evidence in current iteration
+        ∑w_j = sum(w_j)
+        Log_ev = log(∑w_j / Nsamples) + (βj1 - βj) * Lp_adjust + Log_ev   # Log evidence in current iteration
 
         # Normalised weights
-        wn_j = w_j ./ sum(w_j);
+        @tullio wn_j[j] = w_j[j] / ∑w_j;
 
         Th_wm = θ_j .* wn_j                 # Weighted mean of samples
 
@@ -108,7 +124,7 @@ function tmcmc(
         # Weighted resampling of θj (indecies with replacement)
         randIndex = sample(1:Nsamples, Weights(wn_j), Nsamples, replace=true)
 
-        ins = [θ_j[randIndex[i], :] for i = 1:Nsamples]
+        ins .= [θ_j[randIndex[i], :] for i = 1:Nsamples]
 
         @debug "Markov chains with $(nworkers()) workers..."
         # pmap is a parallel map
@@ -131,7 +147,7 @@ function proprnd(mu::AbstractVector, covMat::AbstractMatrix, prior::Function)
     return samp[:]
 end
 
-function run_chains(target::Function, prop::Function, θ_js::Vector{<:Real}, burnin::Integer, thin::Integer)
+function run_chains(target::Function, prop::Function, θ_js::AbstractVector{<:Real}, burnin::Integer, thin::Integer)
     samps, _  = metropolis_hastings_simple(target, prop, θ_js, 1, burnin, thin)
     return samps
 end
