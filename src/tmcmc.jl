@@ -36,6 +36,7 @@ function tmcmc(
     j1 = 0;                     # Iteration number
     βj = 0;                     # Tempering parameter
     θ_j = sample_fT(Nsamples);  # Samples of prior
+    Th_wm = similar(θ_j)
     Lp_j = zeros(Nsamples);   # Log liklihood of first iteration
 
     Log_ev = 0                  # Log Evidence
@@ -63,7 +64,6 @@ function tmcmc(
 
         # TODO: Still some allocation here
         Lp_j = pmap(log_fD_T, ins)
-        Lp_j = reduce(vcat, Lp_j)
 
         ###
         #   Computing new βj
@@ -103,7 +103,7 @@ function tmcmc(
         # Normalised weights
         @tullio wn_j[j] = w_j[j] / ∑w_j;
 
-        Th_wm = θ_j .* wn_j                 # Weighted mean of samples
+        @tullio Th_wm[j,k] = θ_j[j,k] * wn_j[j]                 # Weighted mean of samples
 
         ###
         #   Calculation of COV matrix of proposal
