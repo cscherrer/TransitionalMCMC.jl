@@ -8,6 +8,7 @@ ArraysOfArrays = "65a8f2f4-9b39-5baf-92e2-a9cc46fdf018"
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
+LoopVectorization = "bdcacae8-1622-11e9-2a5c-532679323890"
 StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 Tullio = "bc48ee85-29a4-5162-ae0b-a64e1601d4bc"
 
